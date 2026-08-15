@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS entries (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  datetime DATETIME NOT NULL,
+  memo TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_entries_datetime ON entries (datetime);
