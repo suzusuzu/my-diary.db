@@ -1,0 +1,23 @@
+#!/bin/bash
+# pre-commit hook: diary_human_readable_DO_NOT_EDIT.csv を常に再生成する。
+# この CSV は可視化用の派生物であり、コミットに含めて DB と同期させる。
+# コミットは絶対に止めない（ツールが無い/失敗時は警告して続行）。
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT" || exit 0
+
+VENV="$ROOT/.venv/bin/python3"
+if [ -x "$VENV" ]; then PY="$VENV"; else PY=python3; fi
+
+if ! command -v "$PY" >/dev/null 2>&1; then
+  echo "WARN: python3 が見つからないため hooks をスキップ"
+  exit 0
+fi
+
+# CSV 再生成（DB がソース。失敗してもコミットは止めない）
+if "$PY" "$ROOT/tools/export_csv.py"; then
+  git add "$ROOT/diary_human_readable_DO_NOT_EDIT.csv"
+else
+  echo "WARN: export_csv.py が失敗。コミットは続行します"
+fi
+
+exit 0

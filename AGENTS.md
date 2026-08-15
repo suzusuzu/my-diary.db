@@ -18,7 +18,12 @@ DBへの読み書きは人間が直接行わず、coding agent（Claude Codeな�
 ├── AGENTS.md      # agent向け操作仕様（このファイル）
 ├── diary.db       # 本体のSQLite DB（バイナリのままコミットする）
 ├── schema.sql     # 初期化・再構築用のスキーマ定義
-└── .gitattributes # diary.db を binary 扱いにする設定
+├── .gitattributes # diary.db を binary 扱いにする設定
+├── .gitignore     # .venv/ を除外
+├── setup-hooks.sh # 新マシンで hooks を有効化する（core.hooksPath=git-hooks）
+├── git-hooks/     # pre-commit フック
+├── tools/         # export_csv.py / jst_now.py 等の補助スクリプト
+└── diary_human_readable_DO_NOT_EDIT.csv  # 可視化用CSV（pre-commitで自動生成・編集禁止）
 ```
 
 `diary.db` が存在しない場合は次のコマンドで作成する。
@@ -80,7 +85,8 @@ CREATE INDEX IF NOT EXISTS idx_entries_datetime ON entries (datetime);
 3. 操作が終わったら `diary.db` の変更を含めて commit する。
    コミットメッセージは日付や内容が分かる形にする。
    例: `diary: 2026-08-15 のメモを追加`
-4. `datetime` は指示がない限り、操作時点のローカル時刻をISO8601形式で入れる。
+4. `datetime` は指示がない限り、操作時点の JST をISO8601形式で入れる。
+   「今」は必ず `python3 tools/jst_now.py` で取得する（詳しくは §5）。
 5. `memo` にシングルクォートが含まれる場合はSQLエスケープ（`''`）するか、
    `sqlite3` の `-cmd` やヒアドキュメント経由でパラメータ化して安全に渡す。
 
@@ -141,7 +147,33 @@ sqlite3 -header -column /tmp/diary_old.db "SELECT * FROM entries;"
 
 ---
 
-## 5. スキーマを変更する場合
+## 5. 日時は常に JST（日本標準時）
+
+システムは UTC なので `date` や `datetime('now','localtime')` は JST にならない。
+常に JST で記録すること。
+
+- 「今」の時刻が必要なときは必ず `python3 tools/jst_now.py` で取得する。
+  （ISO8601 + `+09:00` 形式で出力される）
+- `datetime` は必ず JST の ISO8601 形式 `YYYY-MM-DDTHH:MM:SS+09:00` で書く。
+- 手動で日時を指定する場合も、先に `tools/jst_now.py` で現在 JST を確認してから書く。
+- 書き込み後は必ず `SELECT id, datetime FROM entries WHERE id=<id>;` で
+  投入した時刻が JST（UTC の +9）になっていることを確認する。
+
+## 6. git hooks（他マシンで有効化）
+
+このリポジトリは `core.hooksPath = git-hooks` でフック
+（pre-commit: `tools/export_csv.py` で `diary_human_readable_DO_NOT_EDIT.csv` を
+常に再生成）を参照する。
+
+- `core.hooksPath` はローカル git config なのでクローンした他マシンには伝搬しない。
+  新マシンでは一度 `./setup-hooks.sh` を実行して hooks を有効化する（venv も自動作成）。
+- pre-commit は venv（`.venv/bin/python3`）があればそれを使い、無ければ python3 に
+  フォールバックする。ツールが無い・失敗時は警告してスキップする（コミットは止めない）。
+- `diary_human_readable_DO_NOT_EDIT.csv` は人間が読むための可視化用・参照用であり、
+  編集・登録の対象にはしない。修正・削除・追加は必ず DB に対して行い、
+  pre-commit が再生成する。
+
+## 7. スキーマを変更する場合
 
 `entries` にカラムを追加するなど破壊的でない変更は `ALTER TABLE` で行い、
 `schema.sql` も同時に更新して差分をコミットする。
