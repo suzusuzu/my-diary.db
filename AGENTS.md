@@ -131,6 +131,38 @@ git commit -m "diary: id=5 を更新（または削除）"
 git push
 ```
 
+### 文章の推敲・修正
+
+記録済みの `memo` の文章を読みやすく推敲・修正してほしいという指示が
+来た場合は、以下の方針で対応する。
+
+- 内容・事実はそのままに、文章の推敲・補完・修正を行う（例: 語句の補完、
+  文の整理、読点の調整、明示的な列挙、自然な言い回しへの変更）。
+- 意味を変えない範囲で、読みやすく自然な日本語に整える。
+  必要に応じて文を補完して明確化してよいが、事実と異なる情報を
+  勝手に書き足さない。
+- 修正は必ず DB に対して `UPDATE` で行い、`datetime` は変更しない
+  （その瞬間の記録であるため、記録時刻はそのまま保つ）。
+- 修正前後を確認するため、`UPDATE` の前に `SELECT` で対象レコードを
+  確認し、実行後にも修正後の `memo` を `SELECT` で確認する。
+- コミットメッセージは「推敲・修正した」ことが分かる形にする。
+  例: `diary: id=2 のメモを読みやすく修正`
+
+```bash
+# 確認
+sqlite3 -header -column diary.db "SELECT id, memo FROM entries WHERE id = 2;"
+
+# 修正
+sqlite3 diary.db "UPDATE entries SET memo = '推敲後の内容' WHERE id = 2;"
+
+# 修正後確認
+sqlite3 -header -column diary.db "SELECT id, memo FROM entries WHERE id = 2;"
+
+git add diary.db
+git commit -m "diary: id=2 のメモを読みやすく修正"
+git push
+```
+
 ---
 
 ## 4. 変更履歴の確認について
